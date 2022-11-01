@@ -1,0 +1,44 @@
+syntax = "proto3";
+import "anzen/v1/data.proto";
+/* import "anzen/v1/security.proto"; */
+
+package anzen.v1;
+
+message Event {
+  // Device ID that can be looked up later
+  string device_id = 1;
+  // JSON data than can be passed down to other plugins
+  string extra_data = 2;
+  // The name of the plugin that wrote the event onto the
+  // system
+  /* SecurityToken token = 3; */
+  string origin = 3;
+  // Incase we recive data from a device that doesn't have
+  // a defined type, we can still interpret it properly
+  DataType data_type = 4;  
+  // The actual data
+  map<string, Data> data = 5;
+  // If the system was armed when the event was triggered
+  ArmStatus arm_status = 6;
+}
+
+message EventResponse {
+  Event event = 1;
+}
+
+message EventRequest {
+  /* SecurityToken token = 1; */
+}
+
+message PostSingleEventRequest {
+  Event event = 1;
+}
+
+message PostSingleEventResponse {}
+
+message PostStreamEventRequest {
+  Event event = 1;
+}
+
+message PostStreamEventResponse {}
+

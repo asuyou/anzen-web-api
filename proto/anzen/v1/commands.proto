@@ -1,0 +1,73 @@
+syntax = "proto3";
+import "anzen/v1/devices.proto";
+import "anzen/v1/security.proto";
+import "anzen/v1/data.proto";
+import "anzen/v1/plugins.proto";
+
+package anzen.v1;
+
+message RegisterRequest {
+  SecurityToken token = 1;
+  PluginType plugin_type = 2;
+}
+
+message RegisterResponse {
+  bool ok = 1;
+  // Map of devices
+  // key: device ID
+  // value: device
+  map<string, Device> devices = 2;
+  map<string, Plugin> plugins = 3;
+
+  string plugin_opts = 4;
+
+  SecurityToken token = 5;
+  /* string origin = 4; */
+}
+
+message Command {
+  CommandType command_type = 1;
+
+  /* SecurityToken token = 2; */
+  string origin = 2;
+
+  string data = 3;
+  optional map<string, string> set_info = 4;
+  optional ArmStatus arm_status = 5;
+}
+
+message CommandResponse {
+  Command command = 1;
+}
+
+enum CommandType {
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  COMMAND_TYPE_SHUTDOWN = 1;
+  COMMAND_TYPE_INFO = 2;
+}
+
+message CommandRequest {
+  /* SecurityToken token = 1; */
+}
+
+message InfoRequest {
+  /* SecurityToken token = 1; */
+}
+
+message InfoResponse {
+  bool armed = 1;
+  map<string, string> values = 2;
+}
+
+message PostSingleCommandRequest {
+  Command command = 1;
+}
+
+message PostSingleCommandResponse {}
+
+message PostStreamCommandRequest {
+  Command command = 1;
+}
+
+message PostStreamCommandResponse {}
+

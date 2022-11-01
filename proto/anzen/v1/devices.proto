@@ -1,0 +1,21 @@
+syntax = "proto3";
+import "anzen/v1/data.proto";
+
+package anzen.v1;
+
+message Device {
+  string id = 1;
+  string name = 2;
+
+  DeviceType device_type = 3;
+  DataType data_type = 4;
+}
+
+enum DeviceType {
+  DEVICE_TYPE_UNSPECIFIED = 0;
+  DEVICE_TYPE_REED_SWTICH = 1;
+  DEVICE_TYPE_DISTANCE_SENSOR = 2;
+  DEVICE_TYPE_FOB_READER = 3;
+  DEVICE_TYPE_MOTION_SENSOR = 4;
+}
+

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package anzen.v1;
+
+message Plugin {
+  string name = 1;
+  string options = 2;
+  PluginType plugin_type = 4;
+}
+
+enum PluginType {
+  PLUGIN_TYPE_UNSPECIFIED = 0;
+  PLUGIN_TYPE_INPUT = 1;
+  PLUGIN_TYPE_OUTPUT = 2;
+  PLUGIN_TYPE_NO_STARTUP = 3;
+}
+
