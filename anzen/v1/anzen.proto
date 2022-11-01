@@ -1,0 +1,28 @@
+syntax = "proto3";
+import "anzen/v1/events.proto";
+import "anzen/v1/commands.proto";
+
+package anzen.v1;
+
+service AnzenService {
+  // Universal plugin auth
+  rpc Register (RegisterRequest) returns (RegisterResponse) {}
+
+  // Here we can listen to value to changes
+  rpc Event (EventRequest) returns (stream EventResponse) {}
+  rpc Command (CommandRequest) returns (stream CommandResponse) {}
+  rpc Info (InfoRequest) returns (InfoResponse) {}
+
+  // Here we set them in a flexible manner
+  rpc PostSingleEvent (PostSingleEventRequest) returns (PostSingleEventResponse) {}
+  rpc PostStreamEvent (stream PostStreamEventRequest) returns (PostStreamEventResponse) {}
+  rpc PostSingleCommand (PostSingleCommandRequest) returns (PostSingleCommandResponse) {}
+  rpc PostStreamCommand (stream PostStreamCommandRequest) returns (PostStreamCommandResponse) {}
+}
+
+message Response {
+  bool ok = 1;
+  // Leave empty if not an error
+  string error = 2;
+}
+
