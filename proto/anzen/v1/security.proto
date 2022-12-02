@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package anzen.v1;
-
-message SecurityToken {
-  string origin = 1;
-  string key = 2;
-}
-

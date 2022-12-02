@@ -1,7 +1,33 @@
-pub mod anzen {
-    tonic::include_proto!("anzen.v1");
-}
+#[macro_use]
+extern crate rocket;
+extern crate argon2;
+use anzen_lib::{self, anzen, PluginData};
+mod command;
+mod config;
+mod model;
+mod routes;
 
-fn main() {
-    println!("Hello, world!");
+pub type ResultT<T> = Result<T, Box<dyn std::error::Error>>;
+
+#[tokio::main]
+async fn main() -> ResultT<()> {
+    // NOTE:
+    // - Recieves authorized account names
+    // - Recieves JWT key
+    // Implement bcrypt
+
+    let register_data = PluginData {
+        name: "web-api".into(),
+        login_key: "12345".into(),
+        plugin_type: anzen::PluginType::Output,
+        server_socket: "grpc://[::1]:50000".into(),
+    };
+
+    let (_, resp) = anzen_lib::register(&register_data).await.unwrap();
+
+    let config = config::get_config(&resp.plugin_opts)?;
+
+    routes::launch(config).await?;
+
+    Ok(())
 }
