@@ -23,11 +23,13 @@ async fn main() -> ResultT<()> {
         server_socket: "grpc://[::1]:50000".into(),
     };
 
-    let (_, resp) = anzen_lib::register(&register_data).await.unwrap();
+    let (client, resp) = anzen_lib::register(&register_data).await.unwrap();
 
     let config = config::get_config(&resp.plugin_opts)?;
 
-    routes::launch(config).await?;
+    let token = anzen_lib::get_login_key(&resp.token);
+
+    routes::launch(config, token, register_data.name, client).await?;
 
     Ok(())
 }

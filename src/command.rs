@@ -1,6 +1,5 @@
 use anzen_lib::anzen;
 use tokio::sync::watch;
-use rocket::Shutdown;
 use tonic::Streaming;
 
 pub async fn listen_shutdown(

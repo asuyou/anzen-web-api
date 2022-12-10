@@ -1,9 +1,13 @@
-use anzen_lib::db_types;
-use mongodb::{Collection, Client, bson::{doc, oid::ObjectId, Document}};
-use argon2::{self, Config};
-use rocket::futures::TryStreamExt;
-use crate::ResultT;
+use crate::routes::returns::EventCommandN;
 use crate::routes::returns::*;
+use crate::ResultT;
+use anzen_lib::db_types;
+use argon2::{self, Config};
+use mongodb::{
+    bson::{doc, oid::ObjectId, Document},
+    Client, Collection,
+};
+use rocket::futures::TryStreamExt;
 
 mod helpers;
 
@@ -11,36 +15,33 @@ pub struct AnzenDB {
     users: Collection<db_types::User>,
     plugins: Collection<db_types::Plugin>,
     commands: Collection<db_types::Command>,
-    events: Collection<db_types::Event>
+    events: Collection<db_types::Event>,
 }
 
 impl AnzenDB {
-    pub async fn init(uri: String) -> ResultT<AnzenDB>
-    {
+    pub async fn init(uri: String) -> ResultT<AnzenDB> {
         let client = Client::with_uri_str(uri).await?;
         let db = client.database("anzen");
         Ok(AnzenDB {
             users: db.collection("users"),
             plugins: db.collection("plugins"),
             commands: db.collection("commands"),
-            events: db.collection("events")
+            events: db.collection("events"),
         })
     }
 
-    pub async fn valid_user(&self, username: &String, password: &String) -> ResultT<bool>
-    {
+    pub async fn valid_user(&self, username: &String, password: &String) -> ResultT<bool> {
         let user = self.users.find_one(doc! {"name": username}, None).await?;
         match user {
             Some(v) => Ok(argon2::verify_encoded(&v.hash, password.as_bytes())?),
-            None => Ok(false)
+            None => Ok(false),
         }
     }
 
-    pub async fn new_user(&self, username: &String, password: &[u8]) -> ResultT<bool>
-    {
+    pub async fn new_user(&self, username: &String, password: &[u8]) -> ResultT<bool> {
         let user = self.users.find_one(doc! { "name": username }, None).await?;
         if user.is_some() {
-            return Ok(false)
+            return Ok(false);
         }
 
         let config = Config::default();
@@ -104,11 +105,11 @@ impl AnzenDB {
                         "$avg": "$data.v.binary_value"
                     }
                 }
-            }
+            },
         ];
 
         let data = self.events.aggregate(pipeline, None).await?;
-        
+
         let vec_docs: Vec<_> = data.try_collect().await?;
 
         Ok(vec_docs)
@@ -155,14 +156,76 @@ impl AnzenDB {
                     "armed": "$armed",
                     "count": "$count"
                 }
-            }
+            },
         ];
 
         let data = self.events.aggregate(pipeline, None).await?;
-        
+
         let vec_docs: Vec<_> = data.try_collect().await?;
 
         Ok(vec_docs)
     }
-}
 
+    pub async fn last_n(&self, n: i64) -> ResultT<EventCommandN> {
+        if n < 0 {
+            return Err("Cannot have less than 0 documents".into());
+        }
+
+        let event_pipeline = [
+            doc! {
+                "$sort": doc! {
+                    "timestamp": -1
+                }
+            },
+            doc! {
+                "$limit": n
+            },
+            doc! {
+                "$lookup": doc! {
+                    "from": "devices",
+                    "localField": "metadata.device_id",
+                    "foreignField": "_id",
+                    "as": "device"
+                }
+            },
+            doc! {
+                "$lookup": doc! {
+                    "from": "plugins",
+                    "localField": "metadata.plugin_id",
+                    "foreignField": "_id",
+                    "as": "plugin"
+                }
+            },
+        ];
+
+        let command_pipeline = [
+            doc! {
+                "$sort": doc! {
+                    "timestamp": -1
+                }
+            },
+            doc! {
+                "$limit": n
+            },
+            doc! {
+                "$lookup": doc! {
+                    "from": "plugins",
+                    "localField": "metadata.plugin_id",
+                    "foreignField": "_id",
+                    "as": "plugin"
+                }
+            },
+        ];
+
+        let event_data = self.events.aggregate(event_pipeline, None).await?;
+        let command_data = self.commands.aggregate(command_pipeline, None).await?;
+
+        let vec_events: Vec<_> = event_data.try_collect().await?;
+        let vec_commnads: Vec<_> = command_data.try_collect().await?;
+
+        Ok(EventCommandN {
+            events: vec_events,
+            commands: vec_commnads,
+        })
+    }
+}
