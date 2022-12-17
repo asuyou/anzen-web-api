@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate rocket;
 extern crate argon2;
-use anzen_lib::{self, anzen, PluginData};
+use anzen_lib::{self, anzen};
+use anzen_lib::client::PluginData;
 mod command;
 mod config;
 mod model;
@@ -23,11 +24,11 @@ async fn main() -> ResultT<()> {
         server_socket: "grpc://[::1]:50000".into(),
     };
 
-    let (client, resp) = anzen_lib::register(&register_data).await.unwrap();
+    let (client, resp) = anzen_lib::client::register(&register_data).await.unwrap();
 
     let config = config::get_config(&resp.plugin_opts)?;
 
-    let token = anzen_lib::get_login_key(&resp.token);
+    let token = anzen_lib::client::get_login_key(&resp.token);
 
     routes::launch(config, token, register_data.name, client).await?;
 

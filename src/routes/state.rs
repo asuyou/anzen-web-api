@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use anzen_lib::anzen;
-use anzen_lib::ClientRef;
+use anzen_lib::client::ClientRef;
 
 use crate::ResultT;
 
@@ -42,7 +42,7 @@ impl CoreAPI {
     pub async fn get_stats(&self) -> ResultT<anzen::InfoResponse> {
         let mut req = tonic::Request::new(anzen::InfoRequest {});
 
-        anzen_lib::insert_authorization(&mut req, self.token.to_string(), self.name.to_string());
+        anzen_lib::client::insert_authorization(&mut req, self.token.to_string(), self.name.to_string());
 
         let mut client = self.client.lock().await;
 
@@ -69,7 +69,7 @@ impl CoreAPI {
             command: Some(command),
         });
 
-        anzen_lib::insert_authorization(&mut req, self.token.to_string(), self.name.to_string());
+        anzen_lib::client::insert_authorization(&mut req, self.token.to_string(), self.name.to_string());
 
         let mut client = self.client.lock().await;
 

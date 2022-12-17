@@ -3,7 +3,7 @@ use tokio::sync::watch;
 use tonic::Streaming;
 
 pub async fn listen_shutdown(
-    mut shutdown: anzen_lib::Shutdown,
+    mut shutdown: anzen_lib::shutdown::Shutdown,
     shutdown_tx: watch::Sender<bool>,
     mut stream: Streaming<anzen::CommandResponse>,
 ) {

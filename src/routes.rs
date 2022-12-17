@@ -1,4 +1,4 @@
-use anzen_lib::ClientRef;
+use anzen_lib::client::ClientRef;
 
 use crate::{model, ResultT};
 
