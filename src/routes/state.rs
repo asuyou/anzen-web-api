@@ -6,32 +6,39 @@ use anzen_lib::client::ClientRef;
 
 use crate::ResultT;
 
-pub struct Validation {
+pub struct Validation
+{
     pub key: Arc<String>,
     pub allowed_names: Arc<HashSet<String>>,
 }
 
-impl Validation {
-    pub fn init(key: String, allowed: HashSet<String>) -> Validation {
+impl Validation
+{
+    pub fn init(key: String, allowed: HashSet<String>) -> Validation
+    {
         Validation {
             key: Arc::new(key),
             allowed_names: Arc::new(allowed),
         }
     }
 
-    pub async fn name_allowed(&self, name: &String) -> bool {
+    pub async fn name_allowed(&self, name: &String) -> bool
+    {
         self.allowed_names.get(name).is_some()
     }
 }
 
-pub struct CoreAPI {
+pub struct CoreAPI
+{
     token: Arc<String>,
     name: Arc<String>,
     client: ClientRef,
 }
 
-impl CoreAPI {
-    pub fn init(token: String, client: ClientRef, name: String) -> CoreAPI {
+impl CoreAPI
+{
+    pub fn init(token: String, client: ClientRef, name: String) -> CoreAPI
+    {
         CoreAPI {
             token: Arc::new(token),
             name: Arc::new(name),
@@ -39,10 +46,15 @@ impl CoreAPI {
         }
     }
 
-    pub async fn get_stats(&self) -> ResultT<anzen::InfoResponse> {
+    pub async fn get_stats(&self) -> ResultT<anzen::InfoResponse>
+    {
         let mut req = tonic::Request::new(anzen::InfoRequest {});
 
-        anzen_lib::client::insert_authorization(&mut req, self.token.to_string(), self.name.to_string());
+        anzen_lib::client::insert_authorization(
+            &mut req,
+            self.token.to_string(),
+            self.name.to_string(),
+        );
 
         let mut client = self.client.lock().await;
 
@@ -51,7 +63,8 @@ impl CoreAPI {
         Ok(data.into_inner())
     }
 
-    pub async fn toggle_armed(&self) -> ResultT<()> {
+    pub async fn toggle_armed(&self) -> ResultT<()>
+    {
         let new_status = match self.get_stats().await?.armed {
             true => anzen::ArmStatus::Disarmed as i32,
             false => anzen::ArmStatus::Armed as i32,
@@ -69,7 +82,11 @@ impl CoreAPI {
             command: Some(command),
         });
 
-        anzen_lib::client::insert_authorization(&mut req, self.token.to_string(), self.name.to_string());
+        anzen_lib::client::insert_authorization(
+            &mut req,
+            self.token.to_string(),
+            self.name.to_string(),
+        );
 
         let mut client = self.client.lock().await;
 

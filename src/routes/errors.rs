@@ -12,18 +12,22 @@ pub const MSG_INTERNAL_CORE_ERR: &str = "Core endpoints are offline";
 #[derive(Debug, Responder, Serialize)]
 #[serde(crate = "rocket::serde")]
 #[response(content_type = "json")]
-pub struct ErrorJson<T> {
+pub struct ErrorJson<T>
+{
     error: T,
 }
 
-impl ErrorJson<&'static str> {
-    pub fn new(error: &'static str) -> Json<Self> {
+impl ErrorJson<&'static str>
+{
+    pub fn new(error: &'static str) -> Json<Self>
+    {
         Json(Self { error })
     }
 }
 
 #[derive(Debug, Responder)]
-pub enum Error<R> {
+pub enum Error<R>
+{
     #[response(status = 401, content_type = "json")]
     Unauthorized(Json<ErrorJson<R>>),
     #[response(status = 403, content_type = "json")]

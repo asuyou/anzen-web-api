@@ -8,7 +8,8 @@ use rocket::serde::json::Value;
 use rocket::State;
 
 #[get("/test")]
-pub async fn test(claims: Result<Claims, TextError>) -> Result<String, TextError> {
+pub async fn test(claims: Result<Claims, TextError>) -> Result<String, TextError>
+{
     Ok(claims?.sub)
 }
 
@@ -17,7 +18,8 @@ pub async fn stats(
     claims: Result<Claims, TextError>,
     db: &State<AnzenDB>,
     core_api: &State<CoreAPI>,
-) -> Result<Value, TextError> {
+) -> Result<Value, TextError>
+{
     claims?;
 
     let db_fail = Error::Internal(ErrorJson::new(errors::MSG_INTERNAL_DB_ERR));
@@ -31,7 +33,7 @@ pub async fn stats(
         Err(_) => return Err(db_fail),
     };
 
-    let hourly_totals = match db.count_status_time().await {
+    let hourly_totals = match db.count_status_time(None, None, None, None, None).await {
         Ok(v) => v,
         Err(_) => return Err(db_fail),
     };
@@ -67,7 +69,8 @@ pub async fn stats(
 pub async fn toggle(
     claims: Result<Claims, TextError>,
     core_api: &State<CoreAPI>,
-) -> Result<Value, TextError> {
+) -> Result<Value, TextError>
+{
     claims?;
 
     let core_api = core_api.inner();
@@ -80,4 +83,39 @@ pub async fn toggle(
             "Could not toggle arm status",
         ))),
     }
+}
+
+#[get("/search?<start>&<end>&<armed>&<device>&<plugin>")]
+pub async fn search(
+    start: Option<String>,
+    end: Option<String>,
+    armed: Option<bool>,
+    device: Option<String>,
+    plugin: Option<String>,
+    claims: Result<Claims, TextError>,
+    db: &State<AnzenDB>,
+) -> Result<Value, TextError>
+{
+    claims?;
+
+    let db_fail = Error::Internal(ErrorJson::new(errors::MSG_INTERNAL_DB_ERR));
+
+    let db = db.inner();
+
+    let data = match db.search(start.clone(), end.clone(), armed, device.clone(), plugin.clone()).await {
+        Ok(v) => v,
+        Err(_) => return Err(db_fail)
+    };
+
+    let count = match db.count_status_time(start, end, armed, device, plugin).await {
+        Ok(v) => v,
+        Err(_) => return Err(db_fail)
+    };
+
+    Ok(json!({
+        "data": {
+            "hourlyTotals": count,
+            "lastCE": data
+        }
+    }))
 }

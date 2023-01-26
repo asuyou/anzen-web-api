@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate rocket;
 extern crate argon2;
-use anzen_lib::{self, anzen};
 use anzen_lib::client::PluginData;
+use anzen_lib::{self, anzen};
 mod command;
 mod config;
 mod model;
@@ -11,7 +11,8 @@ mod routes;
 pub type ResultT<T> = Result<T, Box<dyn std::error::Error>>;
 
 #[tokio::main]
-async fn main() -> ResultT<()> {
+async fn main() -> ResultT<()>
+{
     // NOTE:
     // - Recieves authorized account names
     // - Recieves JWT key

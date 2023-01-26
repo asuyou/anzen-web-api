@@ -8,18 +8,23 @@ use rocket::request::{FromRequest, Outcome, Request};
 use rocket::serde::{json::Json, Serialize};
 use rocket::State;
 use serde::Deserialize;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub type TextError = errors::Error<&'static str>;
 
+const WEEK: u64 = 60 * 60 * 24 * 7;
+
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
-pub struct UserCred {
+pub struct UserCred
+{
     username: String,
     password: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
+pub struct Claims
+{
     pub exp: usize,
     pub sub: String,
 }
@@ -29,7 +34,8 @@ pub async fn login(
     form: Json<UserCred>,
     state: &State<state::Validation>,
     db: &State<AnzenDB>,
-) -> Result<Json<LoginResponse>, TextError> {
+) -> Result<Json<LoginResponse>, TextError>
+{
     let valid = state.inner();
     let db = db.inner();
 
@@ -53,8 +59,13 @@ pub async fn login(
         )));
     }
 
+    let exp = SystemTime::now()
+        .checked_add(Duration::from_secs(3 * WEEK))
+        .unwrap();
+    let exp = exp.duration_since(UNIX_EPOCH).unwrap().as_secs();
+
     let claims = Claims {
-        exp: 1_000_000_000_000,
+        exp: exp.try_into().unwrap(),
         sub: form.username.clone(),
     };
 
@@ -84,7 +95,8 @@ pub async fn register(
     form: Json<UserCred>,
     state: &State<state::Validation>,
     db: &State<AnzenDB>,
-) -> Result<Json<RegisterResponse>, TextError> {
+) -> Result<Json<RegisterResponse>, TextError>
+{
     let error_user_exists = errors::Error::Conflict(ErrorJson::new(errors::MSG_USER_EXISTS));
     let valid = state.inner();
     let db = db.inner();
@@ -111,10 +123,12 @@ pub async fn register(
 }
 
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for Claims {
+impl<'r> FromRequest<'r> for Claims
+{
     type Error = TextError;
 
-    async fn from_request(request: &'r Request<'_>) -> Outcome<Claims, Self::Error> {
+    async fn from_request(request: &'r Request<'_>) -> Outcome<Claims, Self::Error>
+    {
         let failure = Outcome::Failure((
             Status::Unauthorized,
             errors::Error::Forbidden(ErrorJson::new(errors::MSG_INVALID_TOKEN)),

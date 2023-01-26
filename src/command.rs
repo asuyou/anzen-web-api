@@ -6,7 +6,8 @@ pub async fn listen_shutdown(
     mut shutdown: anzen_lib::shutdown::Shutdown,
     shutdown_tx: watch::Sender<bool>,
     mut stream: Streaming<anzen::CommandResponse>,
-) {
+)
+{
     while let Some(data) = stream.message().await.unwrap() {
         if shutdown.is_shudown() {
             return;

@@ -1,7 +1,8 @@
-use crate::routes::returns::EventCommandN;
-use crate::routes::returns::*;
+use crate::{routes::returns::EventCommandN, model::pipeline::Match};
+
+use mongodb::bson::DateTime;
 use crate::ResultT;
-use anzen_lib::db_types;
+use anzen_lib::db_types::{self, User};
 use argon2::{self, Config};
 use mongodb::{
     bson::{doc, oid::ObjectId, Document},
@@ -10,16 +11,20 @@ use mongodb::{
 use rocket::futures::TryStreamExt;
 
 mod helpers;
+mod pipeline;
 
-pub struct AnzenDB {
+pub struct AnzenDB
+{
     users: Collection<db_types::User>,
     plugins: Collection<db_types::Plugin>,
     commands: Collection<db_types::Command>,
     events: Collection<db_types::Event>,
 }
 
-impl AnzenDB {
-    pub async fn init(uri: String) -> ResultT<AnzenDB> {
+impl AnzenDB
+{
+    pub async fn init(uri: String) -> ResultT<AnzenDB>
+    {
         let client = Client::with_uri_str(uri).await?;
         let db = client.database("anzen");
         Ok(AnzenDB {
@@ -30,7 +35,8 @@ impl AnzenDB {
         })
     }
 
-    pub async fn valid_user(&self, username: &String, password: &String) -> ResultT<bool> {
+    pub async fn valid_user(&self, username: &String, password: &String) -> ResultT<bool>
+    {
         let user = self.users.find_one(doc! {"name": username}, None).await?;
         match user {
             Some(v) => Ok(argon2::verify_encoded(&v.hash, password.as_bytes())?),
@@ -38,7 +44,8 @@ impl AnzenDB {
         }
     }
 
-    pub async fn new_user(&self, username: &String, password: &[u8]) -> ResultT<bool> {
+    pub async fn new_user(&self, username: &String, password: &[u8]) -> ResultT<bool>
+    {
         let user = self.users.find_one(doc! { "name": username }, None).await?;
         if user.is_some() {
             return Ok(false);
@@ -57,7 +64,8 @@ impl AnzenDB {
         Ok(true)
     }
 
-    pub async fn event_statistics(&self) -> ResultT<Vec<Document>> {
+    pub async fn event_statistics(&self) -> ResultT<Vec<Document>>
+    {
         let pipeline = [
             doc! {
                 "$match": doc! {
@@ -115,49 +123,64 @@ impl AnzenDB {
         Ok(vec_docs)
     }
 
-    pub async fn count_status_time(&self) -> ResultT<Vec<Document>> {
-        let pipeline = [
-            doc! {
-                "$project": doc! {
-                    "date": doc! {
-                        "$dateToParts": doc! {
-                            "date": "$timestamp"
-                        }
-                    },
-                    "armed": "$metadata.armed"
-                }
-            },
-            doc! {
-                "$group": doc! {
-                    "_id": doc! {
+    pub async fn count_status_time(
+        &self,
+        start: Option<String>,
+        end: Option<String>,
+        armed: Option<bool>,
+        device: Option<String>,
+        plugin: Option<String>,
+    ) -> ResultT<Vec<Document>>
+    {
+        let pipeline = pipeline::PipelineBuilder::new()
+            .find(None, start, end)?
+            .custom(
+                doc! {
+                    "$project": doc! {
                         "date": doc! {
-                            "year": "$date.year",
-                            "month": "$date.month",
-                            "day": "$date.day",
-                            "hour": "$date.hour"
+                            "$dateToParts": doc! {
+                                "date": "$timestamp"
+                            }
                         },
-                        "armed": "$armed"
-                    },
-                    "count": doc! {
-                        "$count": doc! {}
+                        "armed": "$metadata.armed"
                     }
                 }
-            },
-            doc! {
-                "$project": doc! {
-                    "date": doc! {
-                        "$dateFromParts": doc! {
-                            "year": "$_id.date.year",
-                            "month": "$_id.date.month",
-                            "day": "$_id.date.day",
-                            "hour": "$_id.date.hour"
+            )?
+            .custom(
+                    doc! {
+                        "$group": doc! {
+                            "_id": doc! {
+                                "date": doc! {
+                                    "year": "$date.year",
+                                    "month": "$date.month",
+                                    "day": "$date.day",
+                                    "hour": "$date.hour"
+                                },
+                                "armed": "$armed"
+                            },
+                            "count": doc! {
+                                "$count": doc! {}
+                            }
                         }
-                    },
-                    "armed": "$armed",
-                    "count": "$count"
+                    }
+            )?
+            .custom(
+                doc! {
+                    "$project": doc! {
+                        "date": doc! {
+                            "$dateFromParts": doc! {
+                                "year": "$_id.date.year",
+                                "month": "$_id.date.month",
+                                "day": "$_id.date.day",
+                                "hour": "$_id.date.hour"
+                            }
+                        },
+                        "armed": "$armed",
+                        "count": "$count"
+                    }
                 }
-            },
-        ];
+            )?
+            .build();
 
         let data = self.events.aggregate(pipeline, None).await?;
 
@@ -166,56 +189,92 @@ impl AnzenDB {
         Ok(vec_docs)
     }
 
-    pub async fn last_n(&self, n: i64) -> ResultT<EventCommandN> {
+    pub async fn get_user(&self, id: &String) -> ResultT<User>
+    {
+        let data = self
+            .users
+            .find_one(
+                doc! {
+                    "name": id
+                },
+                None,
+            )
+            .await?;
+
+        match data {
+            Some(data) => Ok(data),
+            _ => Err("no user".into()),
+        }
+    }
+
+    pub async fn last_n(&self, n: i64) -> ResultT<EventCommandN>
+    {
         if n < 0 {
             return Err("Cannot have less than 0 documents".into());
         }
 
-        let event_pipeline = [
-            doc! {
+        let event_pipeline = pipeline::PipelineBuilder::new()
+            .custom(doc! {
                 "$sort": doc! {
                     "timestamp": -1
                 }
-            },
-            doc! {
-                "$limit": n
-            },
-            doc! {
-                "$lookup": doc! {
-                    "from": "devices",
-                    "localField": "metadata.device_id",
-                    "foreignField": "_id",
-                    "as": "device"
-                }
-            },
-            doc! {
-                "$lookup": doc! {
-                    "from": "plugins",
-                    "localField": "metadata.plugin_id",
-                    "foreignField": "_id",
-                    "as": "plugin"
-                }
-            },
-        ];
+            })?
+            .limit(n)?
+            .lookup("plugins", "metadata.plugin_id", "_id", "plugin")?
+            .lookup("devices", "metadata.device_id", "_id", "device")?
+            .build();
 
-        let command_pipeline = [
-            doc! {
+        let command_pipeline = pipeline::PipelineBuilder::new()
+            .custom(doc! {
                 "$sort": doc! {
                     "timestamp": -1
                 }
-            },
-            doc! {
-                "$limit": n
-            },
-            doc! {
-                "$lookup": doc! {
-                    "from": "plugins",
-                    "localField": "metadata.plugin_id",
-                    "foreignField": "_id",
-                    "as": "plugin"
-                }
-            },
-        ];
+            })?
+            .limit(n)?
+            .lookup("plugins", "metadata.plugin_id", "_id", "plugin")?
+            .build();
+
+        let event_data = self.events.aggregate(event_pipeline, None).await?;
+        let command_data = self.commands.aggregate(command_pipeline, None).await?;
+
+        let vec_events: Vec<_> = event_data.try_collect().await?;
+        let vec_commnads: Vec<_> = command_data.try_collect().await?;
+
+        Ok(EventCommandN {
+            events: vec_events,
+            commands: vec_commnads,
+        })
+    }
+
+    pub async fn search(
+        &self,
+        start: Option<String>,
+        end: Option<String>,
+        armed: Option<bool>,
+        device: Option<String>,
+        plugin: Option<String>,
+    ) ->  ResultT<EventCommandN>
+    {
+        let event_pipeline = pipeline::PipelineBuilder::new()
+            .limit(50)?
+            .find(None, start.clone(), end.clone())?
+            .lookup("devices", "metadata.device_id", "_id", "device")?
+            .lookup("plugin", "metadata.plugin_id", "_id", "plugin")?
+            .replace_field(&["device", "plugin"])?
+            .find(Some(&[
+                Match::new("metadata.armed", armed),
+                Match::new("device.id", device),
+                Match::new("plugin.name", plugin),
+            ]), None, None)?
+            .build();
+
+        let command_pipeline = pipeline::PipelineBuilder::new()
+            .limit(50)?
+            .find(None, start, end)?
+            .lookup("plugin", "metadata.plugin_id", "_id", "plugin")?
+            .replace_field(&["plugin"])?
+            .build();
+        
 
         let event_data = self.events.aggregate(event_pipeline, None).await?;
         let command_data = self.commands.aggregate(command_pipeline, None).await?;

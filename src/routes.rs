@@ -14,7 +14,8 @@ pub async fn launch(
     token: String,
     name: String,
     client: ClientRef,
-) -> ResultT<()> {
+) -> ResultT<()>
+{
     let validation = state::Validation::init(config.key, config.auth_users);
     let core_api = state::CoreAPI::init(token, client, name);
     let db_state = model::AnzenDB::init(config.db_uri).await?;
@@ -23,7 +24,7 @@ pub async fn launch(
         .mount("/api/v1/auth", routes![auth::login, auth::register,])
         .mount(
             "/api/v1/data",
-            routes![data::stats, data::test, data::toggle],
+            routes![data::stats, data::test, data::toggle, data::search],
         )
         .mount("/", routes![cors::resp_options])
         .manage(validation)
