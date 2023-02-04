@@ -95,7 +95,7 @@ impl PipelineBuilder {
         let mut replace_fields = doc! {};
 
         names.iter().for_each(|name| {
-            replace_fields.insert(*name, doc! {"$first": "$".to_owned()+&name});
+            replace_fields.insert(*name, doc! {"$first": "$".to_owned()+name});
         });
 
         let replace_doc = doc! {

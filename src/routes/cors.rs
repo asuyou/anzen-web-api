@@ -2,6 +2,8 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::Header;
 use rocket::{Request, Response};
 
+// Adapted from: https://stackoverflow.com/questions/62412361/how-to-set-up-cors-or-options-for-rocket-rs
+
 pub struct CORS;
 
 #[rocket::async_trait]

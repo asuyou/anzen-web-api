@@ -1,6 +1,5 @@
 use crate::{routes::returns::EventCommandN, model::pipeline::Match};
 
-use mongodb::bson::DateTime;
 use crate::ResultT;
 use anzen_lib::db_types::{self, User};
 use argon2::{self, Config};
@@ -8,6 +7,7 @@ use mongodb::{
     bson::{doc, oid::ObjectId, Document},
     Client, Collection,
 };
+use mongodb::bson::DateTime;
 use rocket::futures::TryStreamExt;
 
 mod helpers;
@@ -35,18 +35,18 @@ impl AnzenDB
         })
     }
 
-    pub async fn valid_user(&self, username: &String, password: &String) -> ResultT<bool>
+    pub async fn valid_user(&self, email: &String, password: &String) -> ResultT<bool>
     {
-        let user = self.users.find_one(doc! {"name": username}, None).await?;
+        let user = self.users.find_one(doc! {"email": email}, None).await?;
         match user {
             Some(v) => Ok(argon2::verify_encoded(&v.hash, password.as_bytes())?),
             None => Ok(false),
         }
     }
 
-    pub async fn new_user(&self, username: &String, password: &[u8]) -> ResultT<bool>
+    pub async fn new_user(&self, email: &String, username: &String, level: u8, password: &[u8]) -> ResultT<bool>
     {
-        let user = self.users.find_one(doc! { "name": username }, None).await?;
+        let user = self.users.find_one(doc! { "email": email }, None).await?;
         if user.is_some() {
             return Ok(false);
         }
@@ -54,13 +54,40 @@ impl AnzenDB
         let config = Config::default();
         let salt = helpers::gen_salt().await;
         let hash = argon2::hash_encoded(password, salt.as_bytes(), &config)?;
+
         let new_user = db_types::User {
             _id: ObjectId::new(),
-            name: username.to_string(),
+            email: email.to_string(),
+            username: username.to_string(),
+            created: DateTime::now(),
+            level,
             salt,
             hash,
         };
+
         self.users.insert_one(new_user, None).await?;
+        Ok(true)
+    }
+
+    pub async fn get_all_users(&self) -> ResultT<Vec<Document>> {
+        todo!()
+    }
+
+    pub async fn change_password(&self, email: &String, password: &[u8]) -> ResultT<bool> {
+
+        let config = Config::default();
+        let salt = helpers::gen_salt().await;
+        let hash = argon2::hash_encoded(password, salt.as_bytes(), &config)?;
+
+        self.users.update_one(doc! {
+            "email": email
+        }, doc! {
+            "$set": doc! {
+                "salt": salt,
+                "hash": hash
+            }
+        }, None).await?;
+
         Ok(true)
     }
 
@@ -134,6 +161,19 @@ impl AnzenDB
     {
         let pipeline = pipeline::PipelineBuilder::new()
             .find(None, start, end)?
+            .custom(doc! {
+                "$sort": doc! {
+                    "timestamp": -1
+                }
+            })?
+            .lookup("devices", "metadata.device_id", "_id", "device")?
+            .lookup("plugins", "metadata.plugin_id", "_id", "plugin")?
+            .replace_field(&["device", "plugin"])?
+            .find(Some(&[
+                Match::new("metadata.armed", armed),
+                Match::new("device.id", device),
+                Match::new("plugin.name", plugin),
+            ]), None, None)?
             .custom(
                 doc! {
                     "$project": doc! {
@@ -189,13 +229,13 @@ impl AnzenDB
         Ok(vec_docs)
     }
 
-    pub async fn get_user(&self, id: &String) -> ResultT<User>
+    pub async fn get_user(&self, email: &String) -> ResultT<User>
     {
         let data = self
             .users
             .find_one(
                 doc! {
-                    "name": id
+                    "email": email
                 },
                 None,
             )
@@ -222,6 +262,7 @@ impl AnzenDB
             .limit(n)?
             .lookup("plugins", "metadata.plugin_id", "_id", "plugin")?
             .lookup("devices", "metadata.device_id", "_id", "device")?
+            .replace_field(&["device", "plugin"])?
             .build();
 
         let command_pipeline = pipeline::PipelineBuilder::new()
@@ -232,6 +273,7 @@ impl AnzenDB
             })?
             .limit(n)?
             .lookup("plugins", "metadata.plugin_id", "_id", "plugin")?
+            .replace_field(&["plugin"])?
             .build();
 
         let event_data = self.events.aggregate(event_pipeline, None).await?;
@@ -259,7 +301,7 @@ impl AnzenDB
             .limit(50)?
             .find(None, start.clone(), end.clone())?
             .lookup("devices", "metadata.device_id", "_id", "device")?
-            .lookup("plugin", "metadata.plugin_id", "_id", "plugin")?
+            .lookup("plugins", "metadata.plugin_id", "_id", "plugin")?
             .replace_field(&["device", "plugin"])?
             .find(Some(&[
                 Match::new("metadata.armed", armed),
@@ -271,7 +313,7 @@ impl AnzenDB
         let command_pipeline = pipeline::PipelineBuilder::new()
             .limit(50)?
             .find(None, start, end)?
-            .lookup("plugin", "metadata.plugin_id", "_id", "plugin")?
+            .lookup("plugins", "metadata.plugin_id", "_id", "plugin")?
             .replace_field(&["plugin"])?
             .build();
         

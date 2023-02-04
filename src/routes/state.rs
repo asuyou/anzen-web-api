@@ -6,10 +6,12 @@ use anzen_lib::client::ClientRef;
 
 use crate::ResultT;
 
+use serde_json::json;
+
 pub struct Validation
 {
     pub key: Arc<String>,
-    pub allowed_names: Arc<HashSet<String>>,
+    pub allowed_emails: Arc<HashSet<String>>,
 }
 
 impl Validation
@@ -18,13 +20,13 @@ impl Validation
     {
         Validation {
             key: Arc::new(key),
-            allowed_names: Arc::new(allowed),
+            allowed_emails: Arc::new(allowed),
         }
     }
 
-    pub async fn name_allowed(&self, name: &String) -> bool
+    pub async fn email_allowed(&self, name: &String) -> bool
     {
-        self.allowed_names.get(name).is_some()
+        self.allowed_emails.get(name).is_some()
     }
 }
 
@@ -63,6 +65,24 @@ impl CoreAPI
         Ok(data.into_inner())
     }
 
+    pub async fn add_email(&self, email: String, priority: u128) -> ResultT<()> {
+        let data = json!({
+            "request": "add-email",
+            "email": email,
+            "priority": priority
+        });
+
+        let command = anzen::Command {
+            command_type: 0,
+            origin: self.name.to_string(),
+            data: data.to_string(),
+            arm_status: Some(anzen::ArmStatus::Unspecified as i32),
+            set_info: HashMap::new()
+        };
+
+        self.post_command(command).await
+    }
+
     pub async fn toggle_armed(&self) -> ResultT<()>
     {
         let new_status = match self.get_stats().await?.armed {
@@ -77,6 +97,11 @@ impl CoreAPI
             arm_status: Some(new_status),
             set_info: HashMap::new(),
         };
+
+        self.post_command(command).await
+    }
+
+    async fn post_command(&self, command: anzen::Command) -> ResultT<()> {
 
         let mut req = tonic::Request::new(anzen::PostSingleCommandRequest {
             command: Some(command),

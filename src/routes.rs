@@ -8,6 +8,9 @@ mod data;
 mod errors;
 pub mod returns;
 mod state;
+mod account;
+mod corefuncs;
+mod helpers;
 
 pub async fn launch(
     config: crate::config::Config,
@@ -26,11 +29,19 @@ pub async fn launch(
             "/api/v1/data",
             routes![data::stats, data::test, data::toggle, data::search],
         )
+        .mount(
+            "/api/v1/users",
+            routes![account::user, account::users, account::updatepassword]
+        )
+        .mount(
+            "/api/v1/core",
+            routes![corefuncs::addmail]
+        )
         .mount("/", routes![cors::resp_options])
         .manage(validation)
         .manage(db_state)
         .manage(core_api)
-        .attach(cors::CORS)
+        .attach(cors::Cors)
         .launch()
         .await?;
     Ok(())

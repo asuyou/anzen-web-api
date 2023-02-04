@@ -13,6 +13,16 @@ pub struct LoginResponse
 
 #[derive(Serialize)]
 #[serde(crate = "rocket::serde")]
+pub struct UserDetails
+{
+    pub username: String,
+    pub created: String,
+    pub account_level: String,
+    pub email: String,
+}
+
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
 pub struct RegisterResponse
 {
     pub ok: bool,

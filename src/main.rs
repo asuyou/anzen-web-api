@@ -3,7 +3,6 @@ extern crate rocket;
 extern crate argon2;
 use anzen_lib::client::PluginData;
 use anzen_lib::{self, anzen};
-mod command;
 mod config;
 mod model;
 mod routes;

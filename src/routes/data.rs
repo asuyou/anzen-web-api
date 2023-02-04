@@ -1,5 +1,5 @@
 use super::auth::{Claims, TextError};
-use super::errors::{self, Error, ErrorJson};
+use super::errors::{self, APIError, ErrorJson};
 use super::returns::CoreStatus;
 use super::state::CoreAPI;
 use crate::model::AnzenDB;
@@ -22,8 +22,8 @@ pub async fn stats(
 {
     claims?;
 
-    let db_fail = Error::Internal(ErrorJson::new(errors::MSG_INTERNAL_DB_ERR));
-    let core_fail = Error::Internal(ErrorJson::new(errors::MSG_INTERNAL_CORE_ERR));
+    let db_fail = APIError::Internal(ErrorJson::new(errors::MSG_INTERNAL_DB_ERR));
+    let core_fail = APIError::Internal(ErrorJson::new(errors::MSG_INTERNAL_CORE_ERR));
 
     let db = db.inner();
     let core_api = core_api.inner();
@@ -79,7 +79,7 @@ pub async fn toggle(
         Ok(_) => Ok(json!({
             "ok": true
         })),
-        Err(_) => Err(Error::Internal(ErrorJson::new(
+        Err(_) => Err(APIError::Internal(ErrorJson::new(
             "Could not toggle arm status",
         ))),
     }
@@ -96,11 +96,21 @@ pub async fn search(
     db: &State<AnzenDB>,
 ) -> Result<Value, TextError>
 {
-    claims?;
+    let email = claims?.sub;
 
-    let db_fail = Error::Internal(ErrorJson::new(errors::MSG_INTERNAL_DB_ERR));
+    let db_fail = APIError::Internal(ErrorJson::new(errors::MSG_INTERNAL_DB_ERR));
+    let auth_fail = APIError::Forbidden(ErrorJson::new("Not authorized"));
 
     let db = db.inner();
+
+    let user = match db.get_user(&email).await {
+        Ok(user) => user,
+        Err(_) => return Err(auth_fail)
+    };
+
+    if user.level != 0 {
+        return Err(auth_fail);
+    }
 
     let data = match db.search(start.clone(), end.clone(), armed, device.clone(), plugin.clone()).await {
         Ok(v) => v,
