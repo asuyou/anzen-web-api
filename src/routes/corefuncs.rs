@@ -5,21 +5,31 @@ use super::auth::{Claims, TextError};
 use super::state::CoreAPI;
 use super::errors::{APIError, ErrorJson};
 
-#[get("/addmail?<email>&<priority>")]
+use serde::Deserialize;
+use rocket::serde::json::Json;
+
+#[derive(Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct EmailForm
+{
+    email: String,
+    priority: Option<u128>
+}
+
+#[post("/addmail", data = "<form>")]
 pub async fn addmail(
     claims: Result<Claims, TextError>,
     core_api: &State<CoreAPI>,
-    email: String,
-    priority: Option<u128>
+    form: Json<EmailForm>
 ) -> Result<Value, TextError>
 {
     claims?;
 
     let core_api = core_api.inner();
 
-    let priority = priority.unwrap_or(0);
+    let priority = form.priority.unwrap_or(0);
 
-    match core_api.add_email(email, priority).await {
+    match core_api.add_email(form.email.clone(), priority).await {
         Ok(_) => {
             Ok(json!({
                 "ok": true

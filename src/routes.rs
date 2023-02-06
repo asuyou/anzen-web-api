@@ -41,7 +41,7 @@ pub async fn launch(
         .manage(validation)
         .manage(db_state)
         .manage(core_api)
-        .attach(cors::Cors)
+        .attach(cors::CORS)
         .launch()
         .await?;
     Ok(())
