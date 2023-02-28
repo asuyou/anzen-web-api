@@ -65,7 +65,7 @@ impl CoreAPI
         Ok(data.into_inner())
     }
 
-    pub async fn add_email(&self, email: String, priority: u128) -> ResultT<()> {
+    pub async fn add_email(&self, email: String, priority: i64) -> ResultT<()> {
         let data = json!({
             "request": "add-email",
             "email": email,
@@ -73,7 +73,7 @@ impl CoreAPI
         });
 
         let command = anzen::Command {
-            command_type: 0,
+            command_type: 2,
             origin: self.name.to_string(),
             data: data.to_string(),
             arm_status: Some(anzen::ArmStatus::Unspecified as i32),
@@ -86,15 +86,15 @@ impl CoreAPI
     pub async fn toggle_armed(&self) -> ResultT<()>
     {
         let new_status = match self.get_stats().await?.armed {
-            true => anzen::ArmStatus::Disarmed as i32,
-            false => anzen::ArmStatus::Armed as i32,
+            true => anzen::ArmStatus::Disarmed,
+            false => anzen::ArmStatus::Armed,
         };
 
         let command = anzen::Command {
             command_type: 0,
             origin: self.name.to_string(),
             data: "".into(),
-            arm_status: Some(new_status),
+            arm_status: Some(new_status.into()),
             set_info: HashMap::new(),
         };
 

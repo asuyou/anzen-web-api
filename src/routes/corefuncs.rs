@@ -13,7 +13,7 @@ use rocket::serde::json::Json;
 pub struct EmailForm
 {
     email: String,
-    priority: Option<u128>
+    priority: Option<i64>
 }
 
 #[post("/addmail", data = "<form>")]
